@@ -16,10 +16,16 @@ function lap_periode($tahun, $periode, $dari = '', $sampai = '')
         'smt2' => ["$y-07-01", "$y-12-31", 'SEMESTER II'],
         'tahun' => ["$y-01-01", "$y-12-31", 'TAHUNAN'],
     ];
+    if ($periode === 'ytd') {
+        // awal tahun s.d. hari ini (untuk tahun lalu: s.d. 31 Desember)
+        $end = ($y === (int)date('Y')) ? date('Y-m-d') : "$y-12-31";
+        if ($y > (int)date('Y')) $end = "$y-01-01";
+        return ["$y-01-01", $end, 'S.D. ' . mb_strtoupper(tgl_indo($end)), $y];
+    }
     if ($periode === 'custom' && valid_date($dari) && valid_date($sampai) && $dari <= $sampai) {
         return [$dari, $sampai, 'PERIODE ' . mb_strtoupper(tgl_indo($dari)) . ' S.D. ' . mb_strtoupper(tgl_indo($sampai)), $y];
     }
-    $p = $map[$periode] ?? $map['smt1'];
+    $p = $map[$periode] ?? $map[(int)date('n') <= 6 ? 'smt1' : 'smt2'];
     return [$p[0], $p[1], $p[2], $y];
 }
 
@@ -69,12 +75,33 @@ function lap_scope($u, $skpdF, $unitF)
     return $out;
 }
 
-/** Laporan mutasi per barang */
-function lap_mutasi(array $unitIds, $dari, $sampai, $subId = 0)
+/**
+ * Laporan mutasi per barang.
+ * $tahun (opsional): bila diisi, turut dihitung rincian penerimaan per triwulan (tw1_q..tw4_q)
+ * pada tahun tsb, terlepas dari $dari/$sampai yang dipilih — dipakai untuk kolom rincian
+ * TW I..IV pada Laporan Mutasi & Stock Opname (Semester I/II/Tahunan).
+ */
+function lap_mutasi(array $unitIds, $dari, $sampai, $subId = 0, $tahun = null)
 {
     if (!$unitIds) return [];
-    $params = [$dari, $dari, $dari, $dari, $dari, $sampai, $dari, $sampai, $dari, $sampai, $dari, $sampai, $sampai];
-    $params = array_merge($params, $unitIds);
+    $y = (int)($tahun ?: substr((string)$dari, 0, 4));
+    $tw = [
+        1 => ["$y-01-01", "$y-03-31"],
+        2 => ["$y-04-01", "$y-06-30"],
+        3 => ["$y-07-01", "$y-09-30"],
+        4 => ["$y-10-01", "$y-12-31"],
+    ];
+    $twSql = ''; $twParams = [];
+    foreach ($tw as $n => $r) {
+        $twSql .= ",\n              SUM(CASE WHEN t.tanggal>=? AND t.tanggal<=? AND t.jenis='masuk' AND t.sumber<>'saldo_awal' THEN d.jumlah ELSE 0 END) tw{$n}_q";
+        $twParams[] = $r[0]; $twParams[] = $r[1];
+    }
+    $params = array_merge(
+        [$dari, $dari, $dari, $dari, $dari, $sampai, $dari, $sampai, $dari, $sampai, $dari, $sampai],
+        $twParams,
+        [$sampai],
+        $unitIds
+    );
     $extra = '';
     if ($subId) { $extra = ' AND k.parent_id=?'; $params[] = (int)$subId; }
     $sql = "SELECT b.id, b.unit_id, b.nama_barang, b.satuan, k.kode, k.uraian AS kode_uraian, p.id AS sub_id, p.kode AS sub_kode, p.uraian AS sub_uraian,
@@ -84,7 +111,7 @@ function lap_mutasi(array $unitIds, $dari, $sampai, $subId = 0)
               SUM(CASE WHEN t.tanggal>=? AND t.tanggal<=? AND t.jenis='masuk' AND t.sumber<>'saldo_awal' THEN d.nilai ELSE 0 END) masuk_v,
               SUM(CASE WHEN t.tanggal>=? AND t.tanggal<=? AND t.jenis='keluar' THEN d.jumlah ELSE 0 END) keluar_q,
               SUM(CASE WHEN t.tanggal>=? AND t.tanggal<=? AND t.jenis='keluar' THEN d.nilai ELSE 0 END) keluar_v,
-              MAX(CASE WHEN t.jenis='masuk' THEN d.harga_satuan END) harga_akhir
+              MAX(CASE WHEN t.jenis='masuk' THEN d.harga_satuan END) harga_akhir{$twSql}
             FROM transaksi_detail d
             JOIN transaksi t ON t.id=d.transaksi_id AND t.status='disetujui' AND t.tanggal<=?
             JOIN barang b ON b.id=d.barang_id
@@ -95,7 +122,7 @@ function lap_mutasi(array $unitIds, $dari, $sampai, $subId = 0)
             ORDER BY p.kode, k.kode, b.nama_barang";
     $out = [];
     foreach (rows($sql, $params) as $r) {
-        foreach (['awal_q', 'awal_v', 'masuk_q', 'masuk_v', 'keluar_q', 'keluar_v'] as $f) $r[$f] = round((float)$r[$f], 2);
+        foreach (['awal_q', 'awal_v', 'masuk_q', 'masuk_v', 'keluar_q', 'keluar_v', 'tw1_q', 'tw2_q', 'tw3_q', 'tw4_q'] as $f) $r[$f] = round((float)$r[$f], 2);
         if ($r['awal_q'] == 0 && $r['masuk_q'] == 0 && $r['keluar_q'] == 0 && $r['awal_v'] == 0) continue;
         $r['akhir_q'] = round($r['awal_q'] + $r['masuk_q'] - $r['keluar_q'], 2);
         $r['akhir_v'] = round($r['awal_v'] + $r['masuk_v'] - $r['keluar_v'], 2);
@@ -151,4 +178,14 @@ function lap_ttd_default($u, $scope)
     $pic = $scope['unit']['pic'] ?? ($scope['skpd']['pic'] ?? '');
     return ['kota' => $kota, 'kiri_jabatan' => 'Mengetahui,' . "\n" . 'Kepala ' . ($scope['skpd']['nama'] ?? 'SKPD'), 'kiri_nama' => $scope['skpd']['pic'] ?? '', 'kiri_nip' => '',
         'kanan_jabatan' => 'Pengurus Barang' . ($scope['unit'] ? "\n" . $scope['unit']['nama'] : ''), 'kanan_nama' => $scope['unit'] ? $pic : '', 'kanan_nip' => ''];
+}
+
+/** Info transaksi yang TIDAK ikut dihitung: setelah tanggal akhir periode & yang masih menunggu validasi */
+function lap_info_luar($unitIds, $sampai)
+{
+    if (!$unitIds) return ['setelah' => 0, 'tgl_terakhir' => null, 'menunggu' => 0];
+    $ph = in_ph($unitIds);
+    $r = row("SELECT COUNT(*) n, MAX(tanggal) mx FROM transaksi WHERE status='disetujui' AND tanggal>? AND unit_id IN ($ph)", array_merge([$sampai], $unitIds));
+    $p = (int)val("SELECT COUNT(*) FROM transaksi WHERE status='menunggu' AND tanggal<=? AND unit_id IN ($ph)", array_merge([$sampai], $unitIds));
+    return ['setelah' => (int)$r['n'], 'tgl_terakhir' => $r['mx'], 'menunggu' => $p];
 }

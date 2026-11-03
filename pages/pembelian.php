@@ -243,7 +243,7 @@ $pageScript = <<<'JS'
   new B.Combo($('nama'), {
     minChars: 1,
     source: function(q){ if(!kodeId.value) return Promise.resolve([]); return B.getJSON('ajax.php?act=nama_saran&kode_id=' + kodeId.value + '&q=' + encodeURIComponent(q)).then(function(r){ return r.items; }); },
-    render: function(it){ return '<div>' + B.esc(it.nama_barang) + '</div><div class="s">Satuan ' + B.esc(it.satuan) + ' · stok ' + B.fmtQty(it.stok) + '</div>'; },
+    render: function(it){ return '<div>' + B.esc(it.nama_barang) + '</div><div class="s">Satuan ' + B.esc(it.satuan) + ' · stok ' + B.fmtQty(it.stok) + '</div>' + (it.keterangan ? '<div class="s" style="font-style:italic">' + B.esc(it.keterangan) + '</div>' : ''); },
     onSelect: function(it){ $('nama').value = it.nama_barang; $('satuan').value = it.satuan; $('jumlah').focus(); }
   });
 

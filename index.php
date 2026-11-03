@@ -26,6 +26,7 @@ $routes = [
     'laporan'          => ['superadmin', 'admin_skpd', 'admin'],
     'stock_opname'     => ['superadmin', 'admin_skpd', 'admin', 'operator'],
     'log'              => ['superadmin'],
+    'pengguna'         => ['superadmin'],
     'panduan'          => ['superadmin', 'admin_skpd', 'admin', 'operator'],
 ];
 

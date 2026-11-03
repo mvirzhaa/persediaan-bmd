@@ -93,6 +93,9 @@ table.tbl{width:100%;border-collapse:collapse}
 .tbl .row-sub td:first-child{padding-left:30px}
 .tbl td.act{white-space:nowrap;text-align:right}
 .tbl a.mono,.tbl td.mono{white-space:nowrap}
+.impersonate-bar{position:sticky;top:60px;z-index:19;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:9px 24px;background:#3b2a6b;color:#fff;font-size:13.5px}
+.impersonate-bar .btn{background:#fff;color:#3b2a6b;border-color:#fff}
+.impersonate-bar .btn:hover{background:#ece8f7;color:#3b2a6b}
 .lock-banner a{font-weight:600;margin-left:6px}
 .tbl.compact th,.tbl.compact td{padding:6px 10px}
 .empty{padding:28px;text-align:center;color:var(--ink-3)}

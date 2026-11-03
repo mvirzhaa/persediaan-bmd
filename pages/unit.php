@@ -75,6 +75,7 @@ function akun_badge($x)
           <td class="act">
             <a class="btn btn-light btn-sm" href="<?= e(url('unit_form', ['id' => $x['id']])) ?>">Edit &amp; Akun</a>
             <a class="btn btn-light btn-sm" href="<?= e(url('unit_form', ['parent' => $x['id']])) ?>"><?= icon('plus') ?> Sub Unit</a>
+            <?= login_as_btn((int)val("SELECT id FROM users WHERE unit_id=? AND role='admin' LIMIT 1", [(int)$x['id']]), 'Masuk') ?>
             <form method="post" class="inline-form" data-confirm="Hapus unit ini beserta seluruh sub unit & akunnya?"><?= csrf_field() ?>
               <input type="hidden" name="aksi" value="hapus"><input type="hidden" name="id" value="<?= (int)$x['id'] ?>"><button class="btn btn-danger btn-sm">Hapus</button></form>
           </td>
@@ -87,6 +88,7 @@ function akun_badge($x)
             <td class="num"><?= rupiah($sx['nilai']) ?></td>
             <td class="act">
               <a class="btn btn-light btn-sm" href="<?= e(url('unit_form', ['id' => $sx['id']])) ?>">Edit &amp; Akun</a>
+              <?= login_as_btn((int)val("SELECT id FROM users WHERE unit_id=? AND role='admin' LIMIT 1", [(int)$sx['id']]), 'Masuk') ?>
               <form method="post" class="inline-form" data-confirm="Hapus sub unit ini beserta akunnya?"><?= csrf_field() ?>
                 <input type="hidden" name="aksi" value="hapus"><input type="hidden" name="id" value="<?= (int)$sx['id'] ?>"><button class="btn btn-danger btn-sm">Hapus</button></form>
             </td>

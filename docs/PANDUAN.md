@@ -28,6 +28,7 @@ Persediaan (stok) dicatat di tingkat **unit** dan **sub unit**. Admin SKPD dan S
 | Validasi | - | - | Ya | - |
 | Stock Opname | Pantau / batalkan | Mulai serentak, pantau, batalkan | Mulai, isi hitung fisik, selesaikan | Lihat |
 | Laporan | Seluruh SKPD | SKPD-nya | Unit-nya (+ sub unit) | - |
+| Pengguna & Login As | Ya | - | - | - |
 | Pengaturan & Log Aktivitas | Ya | - | - | - |
 
 **Aturan validasi:** transaksi yang diinput **Operator** harus disetujui **Admin** sebelum mengubah stok. Transaksi Operator Sub Unit dapat divalidasi oleh **Admin Sub Unit** yang bersangkutan **maupun Admin Unit** induknya. Transaksi yang diinput **Admin** langsung mengubah stok tanpa validasi.
@@ -85,6 +86,17 @@ Menu **Master Kode Barang** menyimpan penggolongan dan kodefikasi 7 level dalam 
 - **Unit & Sub Unit:** Super Admin dapat membantu mengelola unit di SKPD mana pun (pilih SKPD di kanan atas).
 - **Stock Opname:** memantau progres per SKPD dan membatalkan stock opname yang tersendat.
 - **Log Aktivitas:** jejak login, perubahan data master, transaksi, validasi, stock opname, dan ekspor laporan.
+
+### 4.4 Login As (masuk sebagai akun lain)
+
+Super Admin dapat membuka aplikasi persis seperti yang dilihat Admin SKPD, Admin/Operator Unit, atau Admin/Operator Sub Unit, misalnya untuk membantu atau memeriksa data.
+
+1. Menu **Pengguna & Login As** → saring per SKPD, peran, status, atau kata kunci → klik **Masuk sebagai**.
+   Tombol **Masuk** juga tersedia di daftar SKPD (sebagai Admin SKPD), di daftar Unit & Sub Unit (sebagai admin unit/sub unit), dan di panel akun pada halaman edit SKPD/unit.
+2. Bilah ungu di atas halaman menandakan mode Login As. Menu yang tampil sesuai akun yang diperankan.
+3. Klik **Kembali ke Super Admin** pada bilah ungu untuk kembali ke halaman asal.
+
+Login As juga berlaku untuk akun yang belum aktif. Setiap Login As dan semua tindakan selama mode ini tercatat di **Log Aktivitas** dengan tanda *Login As oleh Super Admin*. Hanya Super Admin yang dapat menggunakan fitur ini.
 
 ## 5. Admin SKPD
 
@@ -197,7 +209,7 @@ Menu **Laporan** tersedia untuk Super Admin, Admin SKPD, dan Admin Unit/Sub Unit
 
 - **SKPD** (khusus Super Admin; pilih *Seluruh SKPD* untuk tingkat kabupaten).
 - **Unit / Sub Unit.** Memilih unit berarti termasuk sub unit di bawahnya.
-- **Tahun** dan **Periode:** Triwulan I–IV, Semester I/II, Tahunan, atau rentang tanggal bebas.
+- **Tahun** dan **Periode:** bawaan **Awal tahun s.d. hari ini** (agar transaksi terbaru selalu tampil), atau pilih Triwulan I–IV, Semester I/II, Tahunan, maupun rentang tanggal bebas. Di atas laporan tampil keterangan periode, jumlah transaksi yang bertanggal setelah periode (dengan tautan *tampilkan s.d. hari ini*), dan jumlah transaksi yang masih menunggu validasi.
 - **Pengaturan tanda tangan:** tempat, tanggal, jabatan, nama, dan NIP penandatangan kiri & kanan.
 
 | Laporan | Isi | Sesuai contoh |
@@ -214,7 +226,8 @@ Database lengkap (`persediaan_bmd_lengkap.sql`) berisi:
 
 - **Master kode barang**: 484 kode (400 Sub Sub Rincian Objek) dari file kodefikasi.
 - **78 SKPD/Kecamatan** dari *Rekap Komponen Persediaan TW II*, masing-masing dengan unit **Sekretariat** dan saldo persediaan per 30 Juni 2026 sebagai **saldo awal migrasi** (satu baris agregat per sub rincian objek). Laporan Semester I 2026 menghasilkan angka yang sama dengan rekap aslinya.
-- **BPKAD lengkap** dari file stock opname BPKAD: 5 unit, 15 sub unit, ±690 baris barang dengan saldo awal, penerimaan TW I & II, dan pengeluaran Semester I. Ditambah contoh transaksi Juli–Oktober 2026, contoh validasi, satu transaksi ditolak, tiga transaksi menunggu validasi, dan satu stock opname selesai (Subbagian Keuangan, 30 September 2026).
+- **BPKAD lengkap** dari file stock opname BPKAD: 5 unit, 15 sub unit, ±690 baris barang dengan saldo awal, penerimaan TW I & II, dan pengeluaran Semester I.
+- **Tidak ada transaksi contoh/rekaan.** Seluruh data berasal dari file Excel yang diunggah, dengan transaksi terakhir bertanggal 30 Juni 2026. Belum ada transaksi yang menunggu validasi dan belum ada stock opname. Laporan per 30 Juni 2026 menghasilkan total persediaan Rp 164.312.419.116,76 (Rekap TW II Rp 163.865.633.539,69 + BPKAD Rp 446.785.577,07).
 
 **Semua akun contoh memakai password `password`.** Akun SKPD lain sudah terbentuk tetapi belum aktif. Aktifkan melalui Super Admin.
 
@@ -279,7 +292,7 @@ Database lengkap (`persediaan_bmd_lengkap.sql`) berisi:
   - sheet Tinta baris 128 (*Toner 87A HP Black*): penerimaan TW II 4 buah (Rp 19.485.976) tidak ikut dijumlah karena rumus kolom JUMLAH hanya `=D+E`;
   - sheet Kertas baris 235 (*Kertas HVS A3*): saldo 1 rim (Rp 119.999,88) tidak memiliki rumus nilai;
   - sheet ATK baris 65–70: kolom JUMLAH diisi angka langsung tanpa saldo awal/penerimaan. Angka tersebut diperlakukan sebagai saldo awal.
-- Pada Rekap TW II, BPKAD belum mengisi nilai, sedangkan total Alat/Bahan untuk Kegiatan Kantor dari rincian SKPD (Rp 22.002.937.709) berbeda Rp 3.675.175 dari LAP BMD Semester I (Rp 21.999.262.533,92). Rincian lain (Bahan, Suku Cadang, Obat-obatan, dst.) sama persis.
+- Pada Rekap TW II, BPKAD belum mengisi nilai, sedangkan total Alat/Bahan untuk Kegiatan Kantor dari rincian SKPD (Rp 22.002.936.708,92) berbeda Rp 3.674.175,00 dari LAP BMD Semester I (Rp 21.999.262.533,92). Rincian lain (Bahan, Suku Cadang, Obat-obatan, dst.) sama persis.
 
 ## 11. Tanya Jawab
 
@@ -290,6 +303,8 @@ Database lengkap (`persediaan_bmd_lengkap.sql`) berisi:
 **Mengapa pembelian tidak bisa disimpan?** Kemungkinan unit sedang **stock opname** (banner kuning di atas halaman). Tunggu sampai admin menyelesaikannya.
 
 **Salah input transaksi yang sudah disetujui?** Transaksi yang sudah mengubah stok tidak dihapus agar jejak audit terjaga. Koreksi dengan transaksi kebalikannya (pengeluaran untuk kelebihan input, pembelian untuk kekurangan), atau melalui **stock opname**.
+
+**Transaksi baru tidak muncul di laporan?** Periksa periode laporan: transaksi hanya dihitung bila tanggalnya berada di dalam periode dan statusnya *Disetujui*. Gunakan periode **Awal tahun s.d. hari ini** (bawaan) atau klik tautan *tampilkan s.d. hari ini* pada keterangan di atas laporan.
 
 **Bagaimana menyimpan laporan sebagai PDF?** Klik **Cetak / PDF**, lalu pilih *Save as PDF* di dialog cetak. Atur orientasi *Landscape* untuk laporan matriks.
 

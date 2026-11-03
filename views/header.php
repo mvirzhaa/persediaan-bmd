@@ -42,6 +42,7 @@ if ($u['role'] === 'superadmin') {
     $menu[] = ['kode', 'Master Kode Barang', 'code'];
     $menu[] = ['stock_opname', 'Stock Opname', 'lock'];
     $menu[] = ['laporan', 'Laporan', 'report'];
+    $menu[] = ['pengguna', 'Pengguna & Login As', 'users'];
     $menu[] = ['pengaturan', 'Pengaturan', 'gear'];
     $menu[] = ['log', 'Log Aktivitas', 'list'];
 } elseif ($u['role'] === 'admin_skpd') {
@@ -109,6 +110,13 @@ $scopeLabel = $u['role'] === 'superadmin' ? 'Seluruh SKPD' : ($u['role'] === 'ad
         <div class="who-text"><b><?= e($u['nama']) ?></b><small><?= e($u['email']) ?></small></div>
       </div>
     </header>
+    <?php if ($imp = impersonator()): ?>
+      <div class="impersonate-bar">
+        <span>&#128065; Mode <b>Login As</b>: Anda (<?= e($imp['nama']) ?>) sedang masuk sebagai <b><?= e($u['nama']) ?></b> — <?= e(role_label($u['role'], $u['unit_level'])) ?>, <?= e($scopeLabel) ?><?= !(int)$u['is_active'] ? ' <em>(akun belum aktif)</em>' : '' ?>.</span>
+        <form method="post" action="login_as.php" class="inline-form"><?= csrf_field() ?><input type="hidden" name="aksi" value="kembali">
+          <button class="btn btn-sm" type="submit">Kembali ke akun <?= e(role_label($imp['role'])) ?></button></form>
+      </div>
+    <?php endif; ?>
     <div class="nav-backdrop" onclick="document.body.classList.remove('nav-open')"></div>
     <main class="content">
       <?php if (is_unit_user() && ($soLock = so_aktif($u['unit_id'])) && $active !== 'stock_opname'): ?>

@@ -1,0 +1,13 @@
+# Konfigurasi lokal (database server/lokal)
+config.local.php
+
+# File arsip / zip
+*.zip
+*.tar.gz
+*.rar
+
+# Dokumen upload transaksi (kecuali proteksi bawaan)
+uploads/*
+!uploads/.htaccess
+!uploads/index.html
+

@@ -4,7 +4,7 @@ $u = user();
 
 // ------------------------------------------------------------------ parameter
 $jenis = in_array(input('jenis'), ['mutasi', 'rekap', 'objek'], true) ? input('jenis') : 'mutasi';
-$defP = (int)date('n') >= 7 ? ['smt1', (int)date('Y')] : ['smt2', (int)date('Y') - 1];
+$defP = ['ytd', (int)date('Y')]; // bawaan: awal tahun berjalan s.d. hari ini
 $tahun = input_int('tahun', $defP[1]);
 $periode = (string)input('periode', $defP[0]);
 list($dari, $sampai, $plabel, $tahun) = lap_periode($tahun, $periode, (string)input('dari', ''), (string)input('sampai', ''));
@@ -43,48 +43,117 @@ $scopeMeta[] = ['PERIODE', $plabel . ' TAHUN ' . $tahun . ' (' . tgl_indo($dari)
 // ==================================================================
 // 1. LAPORAN MUTASI / STOCK OPNAME PER BARANG
 // ==================================================================
-function model_mutasi($scope, $dari, $sampai, $subF, $scopeMeta, $ttd)
+function model_mutasi($scope, $dari, $sampai, $subF, $scopeMeta, $ttd, $tahun, $periode)
 {
-    $data = lap_mutasi($scope['unit_ids'], $dari, $sampai, $subF);
+    $data = lap_mutasi($scope['unit_ids'], $dari, $sampai, $subF, $tahun);
     $byUnit = [];
     foreach ($data as $r) $byUnit[(int)$r['unit_id']][] = $r;
+
+    // Rincian kolom PENERIMAAN per triwulan, menyesuaikan periode yang dipilih:
+    //  - Semester I          -> TW I, TW II
+    //  - Semester II / Tahun -> TW I s.d. TW IV (dikelompokkan per semester)
+    //  - periode lain (per triwulan, s.d. hari ini, rentang bebas) -> kolom PENERIMAAN tunggal (seperti semula)
+    if ($periode === 'smt1') $twList = [1, 2];
+    elseif (in_array($periode, ['smt2', 'tahun'], true)) $twList = [1, 2, 3, 4];
+    else $twList = [];
+    $twCount = count($twList);
+    $fullRs = $twCount === 4 ? 3 : 2;   // rowspan kolom yang utuh (tanpa sub kolom)
+    $saldoRs = $twCount === 4 ? 2 : 1;  // rowspan SALDO & SELISIH (anaknya baru muncul 1 baris di bawahnya)
+
+    $cols = array_merge([5, 44, 9, 10], array_fill(0, max(1, $twCount), 11), [11, 11, 10, 10, 15, 17, 17, 8, 13]);
+    $nc = count($cols);
+
+    $row1 = [
+        rc('NO', 's', 1, $fullRs), rc('NAMA / JENIS BARANG', 's', 1, $fullRs), rc('SATUAN', 's', 1, $fullRs), rc('SALDO AWAL', 's', 1, $fullRs),
+        rc('PENERIMAAN', 's', $twCount ?: 1, $twCount ? 1 : $fullRs),
+        rc("JUMLAH\nPERSEDIAAN", 's', 1, $fullRs), rc("JUMLAH\nPENGELUARAN", 's', 1, $fullRs),
+        rc('SALDO', 's', 2, $saldoRs),
+        rc("HARGA SATUAN\n(Rp)", 's', 1, $fullRs), rc("JUMLAH\nPENERIMAAN\n(Rp)", 's', 1, $fullRs), rc("NILAI PERSEDIAAN\n(Rp)", 's', 1, $fullRs),
+        rc('SELISIH ADM & FISIK', 's', 2, $saldoRs),
+    ];
+    $head = [$row1];
+    if ($twCount === 4) {
+        $head[] = [rc('Semester 1', 's', 2, 1), rc('Semester 2', 's', 2, 1)];
+        $head[] = ['TW I', 'TW II', 'TW III', 'TW IV', 'ADM', 'FISIK', 'Unit', 'Rp'];
+    } elseif ($twCount === 2) {
+        $head[] = ['TW I', 'TW II', 'ADM', 'FISIK', 'Unit', 'Rp'];
+    } else {
+        $head[] = ['ADM', 'FISIK', 'Unit', 'Rp'];
+    }
+    // baris nomor referensi kolom (mis. "9=4+5+6+7+8"), dihitung otomatis mengikuti jumlah kolom TW
+    $col = 0;
+    $nextCol = function () use (&$col) { return (string)(++$col); };
+    $refs = [$nextCol(), $nextCol(), $nextCol(), $nextCol()];
+    $penStart = $col + 1;
+    if ($twCount) { for ($i = 0; $i < $twCount; $i++) $refs[] = $nextCol(); } else $refs[] = $nextCol();
+    $penEnd = $col;
+    $penTerms = implode('+', range($penStart, $penEnd));
+    $jpCol = $nextCol(); $refs[] = $jpCol . '=4+' . $penTerms;
+    $jkCol = $nextCol(); $refs[] = $jkCol;
+    $sadmCol = $nextCol(); $refs[] = $sadmCol . '=' . $jpCol . '-' . $jkCol;
+    $refs[] = $nextCol(); // saldo fisik
+    $hsCol = $nextCol(); $refs[] = $hsCol;
+    $jprCol = $nextCol(); $refs[] = $jprCol . '=' . ($penEnd > $penStart ? '(' . $penTerms . ')' : $penTerms) . 'x' . $hsCol;
+    $nvCol = $nextCol(); $refs[] = $nvCol . '=' . $sadmCol . 'x' . $hsCol;
+    $refs[] = $nextCol(); // selisih unit
+    $refs[] = $nextCol(); // selisih rp
+    $head[] = $refs;
+
     $m = [
         'titles' => ['LAPORAN MUTASI DAN STOCK OPNAME BARANG PERSEDIAAN', 'POSISI ' . mb_strtoupper(tgl_indo($sampai))],
         'meta' => $scopeMeta,
-        'cols' => [5, 44, 9, 10, 11, 11, 11, 10, 10, 15, 17, 8, 13],
-        'head' => [
-            [rc('NO', 's', 1, 2), rc('NAMA / JENIS BARANG', 's', 1, 2), rc('SATUAN', 's', 1, 2), rc('SALDO AWAL', 's', 1, 2), rc('PENERIMAAN', 's', 1, 2), rc("JUMLAH\nPERSEDIAAN", 's', 1, 2), rc("JUMLAH\nPENGELUARAN", 's', 1, 2),
-                rc('SALDO', 's', 2, 1), rc("HARGA SATUAN\n(Rp)", 's', 1, 2), rc("NILAI PERSEDIAAN\n(Rp)", 's', 1, 2), rc('SELISIH ADM & FISIK', 's', 2, 1)],
-            ['ADM', 'FISIK', 'Unit', 'Rp'],
-            ['1', '2', '3', '4', '5', '6=4+5', '7', '8=6-7', '9', '10', '11=8x10', '12', '13'],
-        ],
+        'cols' => $cols,
+        'head' => $head,
         'body' => [], 'landscape' => true, 'ttd' => $ttd,
-        'notes' => ['Kolom Saldo Fisik dan Selisih diisi saat pelaksanaan stock opname (lihat menu Stock Opname untuk Berita Acara hasil hitung fisik).'],
+        'notes' => [
+            'Kolom Saldo Fisik dan Selisih diisi saat pelaksanaan stock opname (lihat menu Stock Opname untuk Berita Acara hasil hitung fisik).',
+            'Kolom "Jumlah Penerimaan (Rp)" = jumlah seluruh transaksi penerimaan yang disetujui pada periode terpilih × harga satuan masing-masing (dihitung presisi per transaksi, bukan rata-rata), untuk pencocokan dengan LRA.',
+        ],
     ];
+    if ($twCount) $m['notes'][] = 'Rincian TW I' . ($twCount === 4 ? ' s.d. TW IV' : '–II') . ' pada kolom PENERIMAAN hanya ditampilkan untuk periode Semester/Tahunan.';
     $rekap = [];
     $grand = 0;
-    foreach ($scope['entities'] as $uid => $ent) {
+    // kelompok selalu per unit/sub unit (bila cakupan = seluruh SKPD, nama SKPD ditampilkan di depan)
+    $units = $scope['entities'];
+    if ($scope['entity'] === 'skpd') {
+        $units = [];
+        foreach (rows('SELECT uk.id, uk.nama, uk.level, uk.parent_id, s.nama AS skpd_nama FROM unit_kerja uk JOIN skpd s ON s.id=uk.skpd_id
+                       ORDER BY (s.kode IS NULL), s.kode+0, s.kode, s.nama, COALESCE(uk.parent_id, uk.id), uk.level, uk.nama') as $x) {
+            $units[(int)$x['id']] = ['nama' => $x['skpd_nama'] . ' — ' . $x['nama'], 'level' => $x['level'], 'parent_id' => $x['parent_id']];
+        }
+    }
+    foreach ($units as $uid => $ent) {
         if (empty($byUnit[$uid])) continue;
-        $m['body'][] = ['cls' => 'g', 'cells' => [rc(mb_strtoupper(($ent['level'] === 'subunit' ? '› ' : '') . $ent['nama']), 's', 13)]];
+        $m['body'][] = ['cls' => 'g', 'cells' => [rc(mb_strtoupper(($ent['level'] === 'subunit' ? '› ' : '') . $ent['nama']), 's', $nc)]];
         $curSub = null; $no = 0; $tot = 0;
         foreach ($byUnit[$uid] as $r) {
             if ($curSub !== $r['sub_kode']) {
                 $curSub = $r['sub_kode']; $no = 0;
-                $m['body'][] = ['cls' => '', 'cells' => [rc(''), rc($r['sub_kode'] . '  ' . judul($r['sub_uraian']), 's', 12)]];
+                $m['body'][] = ['cls' => '', 'cells' => [rc(''), rc($r['sub_kode'] . '  ' . judul($r['sub_uraian']), 's', $nc - 1)]];
             }
             $no++;
-            $m['body'][] = ['cells' => [rc($no, 'c'), $r['nama_barang'], rc($r['satuan'], 'c'), rc($r['awal_q'], 'q'), rc($r['masuk_q'], 'q'), rc($r['awal_q'] + $r['masuk_q'], 'q'), rc($r['keluar_q'], 'q'),
-                rc($r['akhir_q'], 'q'), rc('', 'q'), rc($r['harga'], 'n'), rc($r['akhir_v'], 'n'), rc('', 'q'), rc('', 'n')]];
+            $cells = [rc($no, 'c'), $r['nama_barang'], rc($r['satuan'], 'c'), rc($r['awal_q'], 'q')];
+            if ($twCount) { foreach ($twList as $tn) $cells[] = rc($r['tw' . $tn . '_q'], 'q'); } else $cells[] = rc($r['masuk_q'], 'q');
+            $cells[] = rc($r['awal_q'] + $r['masuk_q'], 'q');
+            $cells[] = rc($r['keluar_q'], 'q');
+            $cells[] = rc($r['akhir_q'], 'q');
+            $cells[] = rc('', 'q'); // saldo fisik (diisi saat stock opname)
+            $cells[] = rc($r['harga'], 'n');
+            $cells[] = rc($r['masuk_v'], 'n'); // jumlah penerimaan (Rp)
+            $cells[] = rc($r['akhir_v'], 'n');
+            $cells[] = rc('', 'q'); // selisih unit
+            $cells[] = rc('', 'n'); // selisih rp
+            $m['body'][] = ['cells' => $cells];
             $tot += $r['akhir_v'];
             $k = $r['sub_kode'];
             if (!isset($rekap[$k])) $rekap[$k] = ['uraian' => $r['sub_uraian'], 'awal' => 0, 'masuk' => 0, 'keluar' => 0, 'akhir' => 0, 'n' => 0];
             $rekap[$k]['awal'] += $r['awal_v']; $rekap[$k]['masuk'] += $r['masuk_v']; $rekap[$k]['keluar'] += $r['keluar_v']; $rekap[$k]['akhir'] += $r['akhir_v']; $rekap[$k]['n']++;
         }
-        $m['body'][] = ['cls' => 't', 'cells' => [rc('JUMLAH ' . mb_strtoupper($ent['nama']), 's', 10), rc($tot, 'n'), rc('', 's', 2)]];
+        $m['body'][] = ['cls' => 't', 'cells' => [rc('JUMLAH ' . mb_strtoupper($ent['nama']), 's', $nc - 3), rc($tot, 'n'), rc('', 's', 2)]];
         $grand += $tot;
     }
-    if ($m['body']) $m['body'][] = ['cls' => 't', 'cells' => [rc('JUMLAH TOTAL', 's', 10), rc($grand, 'n'), rc('', 's', 2)]];
-    else $m['body'][] = ['cells' => [rc('Tidak ada data persediaan pada periode ini.', 'c', 13)]];
+    if ($m['body']) $m['body'][] = ['cls' => 't', 'cells' => [rc('JUMLAH TOTAL', 's', $nc - 3), rc($grand, 'n'), rc('', 's', 2)]];
+    else $m['body'][] = ['cells' => [rc('Tidak ada data persediaan pada periode ini.', 'c', $nc)]];
     ksort($rekap);
     $r2 = [
         'titles' => ['REKAP NILAI PERSEDIAAN PER JENIS BARANG', 'POSISI ' . mb_strtoupper(tgl_indo($sampai))],
@@ -214,7 +283,7 @@ function model_objek($scope, $dari, $sampai, $plabel, $tahun, $kodeAll, $ringkas
 
 // ------------------------------------------------------------------ bangun model
 if ($jenis === 'mutasi') {
-    list($model, $model2) = model_mutasi($scope, $dari, $sampai, $subF, $scopeMeta, $ttd);
+    list($model, $model2) = model_mutasi($scope, $dari, $sampai, $subF, $scopeMeta, $ttd, $tahun, $periode);
 } elseif ($jenis === 'rekap') {
     $model = model_rekap($scope, $dari, $sampai, $kodeAll, $semuaKolom, $pemerintah, $ttd);
     $model2 = null;
@@ -277,7 +346,7 @@ $tabs = [
       <?php endif; ?>
       <div class="field" style="min-width:110px"><label>Tahun</label><select name="tahun"><?php for ($y = (int)date('Y') + 1; $y >= 2020; $y--): ?><option <?= $y === $tahun ? 'selected' : '' ?>><?= $y ?></option><?php endfor; ?></select></div>
       <div class="field" style="min-width:150px"><label>Periode</label><select name="periode" id="periode">
-        <?php foreach (['tw1' => 'Triwulan I', 'tw2' => 'Triwulan II', 'tw3' => 'Triwulan III', 'tw4' => 'Triwulan IV', 'smt1' => 'Semester I', 'smt2' => 'Semester II', 'tahun' => 'Tahunan', 'custom' => 'Rentang tanggal…'] as $k => $v): ?>
+        <?php foreach (['ytd' => 'Awal tahun s.d. hari ini', 'tw1' => 'Triwulan I', 'tw2' => 'Triwulan II', 'tw3' => 'Triwulan III', 'tw4' => 'Triwulan IV', 'smt1' => 'Semester I', 'smt2' => 'Semester II', 'tahun' => 'Tahunan', 'custom' => 'Rentang tanggal…'] as $k => $v): ?>
           <option value="<?= $k ?>" <?= $periode === $k ? 'selected' : '' ?>><?= $v ?></option><?php endforeach; ?></select></div>
       <div class="field custom-range" style="min-width:140px"><label>Dari</label><input type="date" name="dari" value="<?= e($dari) ?>"></div>
       <div class="field custom-range" style="min-width:140px"><label>Sampai</label><input type="date" name="sampai" value="<?= e($sampai) ?>"></div>
@@ -309,6 +378,15 @@ $tabs = [
   </div>
 </form>
 
+<?php $luar = lap_info_luar($scope['unit_ids'], $sampai); ?>
+<div class="alert alert-info no-print" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+  <span>Periode laporan: <b><?= tgl_indo($dari) ?> s.d. <?= tgl_indo($sampai) ?></b>.</span>
+  <?php if ($luar['setelah']): ?>
+    <span><?= (int)$luar['setelah'] ?> transaksi bertanggal setelah <?= tgl_indo($sampai) ?> (terakhir <?= tgl_indo($luar['tgl_terakhir']) ?>) tidak termasuk —
+      <a href="<?= e('?' . http_build_query(array_merge($qs, ['periode' => 'ytd', 'tahun' => substr($luar['tgl_terakhir'], 0, 4), 'export' => null]))) ?>">tampilkan s.d. hari ini</a>.</span>
+  <?php endif; ?>
+  <?php if ($luar['menunggu']): ?><span><?= (int)$luar['menunggu'] ?> transaksi masih <b>menunggu validasi</b> dan belum dihitung.</span><?php endif; ?>
+</div>
 <div class="card">
   <div class="card-body">
     <div class="report-scroll"><?= report_html($model) ?></div>

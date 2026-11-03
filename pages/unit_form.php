@@ -92,7 +92,7 @@ include BASE_PATH . '/views/header.php';
                 <td><?= $a['role'] === 'admin' ? '<span class="badge badge-teal">Admin</span>' : '<span class="badge badge-blue">Operator</span>' ?></td>
                 <td class="small"><?= $a['email'] ? e($a['email']) : '<span class="muted">belum diisi</span>' ?></td>
                 <td><?= ($a['is_active'] && $a['email'] && $a['password']) ? '<span class="badge badge-green">Aktif</span>' : '<span class="badge badge-gray">Belum aktif</span>' ?></td>
-                <td class="act"><a class="btn btn-light btn-sm" href="<?= e(url('akun', ['id' => $a['id']])) ?>">Atur</a></td>
+                <td class="act"><a class="btn btn-light btn-sm" href="<?= e(url('akun', ['id' => $a['id']])) ?>">Atur</a> <?= login_as_btn($a['id'], 'Masuk') ?></td>
               </tr>
             <?php endforeach; ?>
             </tbody>

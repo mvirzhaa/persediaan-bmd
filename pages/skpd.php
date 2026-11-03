@@ -65,6 +65,7 @@ include BASE_PATH . '/views/header.php';
           <td class="act">
             <a class="btn btn-light btn-sm" href="<?= e(url('skpd_form', ['id' => $s['id']])) ?>">Edit &amp; Akun</a>
             <a class="btn btn-light btn-sm" href="<?= e(url('unit', ['skpd' => $s['id']])) ?>">Unit</a>
+            <?= login_as_btn((int)val("SELECT id FROM users WHERE skpd_id=? AND role='admin_skpd' ORDER BY slot, id LIMIT 1", [(int)$s['id']]), 'Masuk') ?>
             <form method="post" class="inline-form" data-confirm="Hapus SKPD ini beserta seluruh unit & akunnya?">
               <?= csrf_field() ?><input type="hidden" name="aksi" value="hapus"><input type="hidden" name="id" value="<?= (int)$s['id'] ?>">
               <button class="btn btn-danger btn-sm" type="submit">Hapus</button>
