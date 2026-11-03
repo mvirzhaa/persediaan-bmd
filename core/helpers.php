@@ -186,14 +186,8 @@ function hapus_file($rel)
 function log_aktivitas($aksi, $ket = '')
 {
     try {
-        $impNote = '';
-        if (!empty($_SESSION['impersonator'])) {
-            $imp = function_exists('impersonator') ? impersonator() : null;
-            $lbl = $imp ? role_label($imp['role']) : 'Super Admin';
-            $impNote = ' [Login As oleh ' . $lbl . ' #' . (int)$_SESSION['impersonator'] . ']';
-        }
         exec_sql('INSERT INTO log_aktivitas (user_id, aksi, keterangan, ip) VALUES (?,?,?,?)', [
-            $_SESSION['uid'] ?? null, $aksi, mb_substr($ket . $impNote, 0, 500), $_SERVER['REMOTE_ADDR'] ?? null,
+            $_SESSION['uid'] ?? null, $aksi, mb_substr($ket . (!empty($_SESSION['impersonator']) ? ' [Login As oleh ' . impersonator_label() . ' #' . (int)$_SESSION['impersonator'] . ']' : ''), 0, 500), $_SERVER['REMOTE_ADDR'] ?? null,
         ]);
     } catch (Throwable $e) { /* abaikan */ }
 }

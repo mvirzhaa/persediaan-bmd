@@ -127,29 +127,31 @@ function can_view_trx(array $trx, $u = null)
     return in_array((int)$trx['unit_id'], unit_scope_ids($u), true);
 }
 
-// ---------------------------------------------------------------- Login As (Super Admin & Admin SKPD)
+// ---------------------------------------------------------------- Login As
+//  - Super Admin  : boleh masuk sebagai akun mana pun selain Super Admin
+//  - Admin SKPD   : boleh masuk sebagai Admin/Operator unit & sub unit di SKPD-nya sendiri
 
-/** id pengguna asli bila sedang "login as", selain itu 0 */
+/** id akun asli (Super Admin / Admin SKPD) bila sedang "login as", selain itu 0 */
 function impersonator_id()
 {
     return (int)($_SESSION['impersonator'] ?? 0);
 }
 
-/** Data pengguna asli (Super Admin / Admin SKPD) yang sedang login as (atau null) */
+/** Data akun asli yang sedang login as (atau null) */
 function impersonator()
 {
     static $r = false;
-    if ($r === false) $r = impersonator_id() ? row("SELECT id, nama, email, role FROM users WHERE id=? AND role IN ('superadmin','admin_skpd')", [impersonator_id()]) : null;
+    if ($r === false) $r = impersonator_id() ? row("SELECT id, nama, email, role, skpd_id FROM users WHERE id=? AND role IN ('superadmin','admin_skpd')", [impersonator_id()]) : null;
     return $r;
 }
 
-/** Data pengguna sebenarnya (sebelum Login As) — akun yang sedang login_at, bukan akun yang sedang diperankan */
+/** Akun yang sebenarnya login (bukan akun yang sedang diperankan) */
 function real_user()
 {
     static $r = false;
     if ($r === false) {
         $rid = impersonator_id() ?: (int)($_SESSION['uid'] ?? 0);
-        $r = $rid ? row('SELECT * FROM users WHERE id=?', [$rid]) : null;
+        $r = $rid ? row('SELECT id, nama, email, role, skpd_id, is_active FROM users WHERE id=?', [$rid]) : null;
     }
     return $r;
 }
@@ -161,33 +163,51 @@ function real_is_superadmin()
     return $r && $r['role'] === 'superadmin';
 }
 
-/**
- * Apakah pengguna sebenarnya berwenang menggunakan "Login As" ke akun target.
- * Super Admin: boleh ke semua akun non-superadmin.
- * Admin SKPD: boleh ke akun admin/operator unit & sub unit di bawah SKPD-nya sendiri (lihat can_manage_account()).
- */
+/** Bolehkah akun asli masuk sebagai akun $target (butuh kolom id, role, unit_id) */
 function can_login_as(array $target)
 {
     $r = real_user();
-    if (!$r) return false;
-    return can_manage_account($target, $r);
+    if (!$r || !(int)$r['is_active']) return false;
+    if ((int)$target['id'] === (int)$r['id'] || $target['role'] === 'superadmin') return false;
+    if ($r['role'] === 'superadmin') return true;
+    if ($r['role'] === 'admin_skpd' && in_array($target['role'], ['admin', 'operator'], true) && !empty($target['unit_id'])) {
+        $sk = val('SELECT skpd_id FROM unit_kerja WHERE id=?', [(int)$target['unit_id']]);
+        return $sk !== null && (int)$sk === (int)$r['skpd_id'];
+    }
+    return false;
 }
 
-/** Masuk sebagai akun lain (admin SKPD / admin unit / admin sub unit / operator) */
+/** Label peran akun asli untuk pesan & log, mis. "Super Admin" / "Admin SKPD" */
+function impersonator_label()
+{
+    return (($_SESSION['impersonator_role'] ?? 'superadmin') === 'admin_skpd') ? 'Admin SKPD' : 'Super Admin';
+}
+
+/**
+ * Masuk sebagai akun lain. Mengembalikan data akun tujuan (+ unit_level).
+ * Super Admin: admin SKPD / admin unit / admin sub unit / operator.
+ * Admin SKPD : admin & operator unit / sub unit di SKPD-nya.
+ */
 function login_as($targetId)
 {
-    $t = row('SELECT * FROM users WHERE id=?', [(int)$targetId]);
-    if (!$t || $t['role'] === 'superadmin') throw new RuntimeException('Akun tujuan tidak valid.');
-    if (!can_login_as($t)) throw new RuntimeException('Anda tidak berwenang menggunakan Login As untuk akun ini.');
-    $sa = impersonator_id() ?: (int)$_SESSION['uid'];
+    $r = real_user();
+    if (!$r || !in_array($r['role'], ['superadmin', 'admin_skpd'], true)) throw new RuntimeException('Login As hanya dapat digunakan oleh Super Admin dan Admin SKPD.');
+    $t = row('SELECT u.*, uk.level AS unit_level FROM users u LEFT JOIN unit_kerja uk ON uk.id=u.unit_id WHERE u.id=?', [(int)$targetId]);
+    if (!$t || !can_login_as($t)) {
+        throw new RuntimeException($r['role'] === 'admin_skpd'
+            ? 'Admin SKPD hanya dapat masuk sebagai akun Admin/Operator unit dan sub unit di SKPD-nya sendiri.'
+            : 'Akun tujuan tidak valid.');
+    }
     session_regenerate_id(true);
-    $_SESSION['impersonator'] = $sa;
+    $_SESSION['impersonator'] = (int)$r['id'];
+    $_SESSION['impersonator_role'] = $r['role'];
     $_SESSION['uid'] = (int)$t['id'];
     exec_sql('INSERT INTO log_aktivitas (user_id, aksi, keterangan, ip) VALUES (?,?,?,?)',
-        [$sa, 'login_as', 'Masuk sebagai #' . $t['id'] . ' ' . $t['nama'] . ($t['email'] ? ' <' . $t['email'] . '>' : ''), $_SERVER['REMOTE_ADDR'] ?? null]);
+        [(int)$r['id'], 'login_as', 'Masuk sebagai #' . $t['id'] . ' ' . $t['nama'] . ($t['email'] ? ' <' . $t['email'] . '>' : ''), $_SERVER['REMOTE_ADDR'] ?? null]);
+    return $t;
 }
 
-/** Kembali ke akun Super Admin */
+/** Kembali ke akun asli */
 function stop_login_as()
 {
     $sa = impersonator_id();
@@ -195,15 +215,17 @@ function stop_login_as()
     $from = (int)$_SESSION['uid'];
     session_regenerate_id(true);
     $_SESSION['uid'] = $sa;
-    unset($_SESSION['impersonator']);
+    unset($_SESSION['impersonator'], $_SESSION['impersonator_role']);
     exec_sql('INSERT INTO log_aktivitas (user_id, aksi, keterangan, ip) VALUES (?,?,?,?)',
         [$sa, 'login_as_selesai', 'Kembali dari akun #' . $from, $_SERVER['REMOTE_ADDR'] ?? null]);
 }
 
-/** Tombol "Masuk sebagai" (tampil untuk Super Admin, serta Admin SKPD ke akun di bawah SKPD-nya) */
+/** Tombol "Masuk sebagai" (tampil untuk Super Admin, dan untuk Admin SKPD pada akun unit/sub unit di SKPD-nya) */
 function login_as_btn($userId, $label = 'Masuk sebagai', $cls = 'btn btn-light btn-sm')
 {
     if (!$userId || impersonator_id()) return '';
+    $r = real_user();
+    if (!$r || !in_array($r['role'], ['superadmin', 'admin_skpd'], true)) return '';
     $t = row('SELECT id, role, unit_id FROM users WHERE id=?', [(int)$userId]);
     if (!$t || !can_login_as($t)) return '';
     return '<form method="post" action="login_as.php" class="inline-form">' . csrf_field()

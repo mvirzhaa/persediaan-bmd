@@ -18,7 +18,7 @@ Persediaan (stok) dicatat di tingkat **unit** dan **sub unit**. Admin SKPD dan S
 
 | Menu | Super Admin | Admin SKPD | Admin Unit / Sub Unit | Operator Unit / Sub Unit |
 |---|---|---|---|---|
-| Dashboard | Seluruh SKPD | SKPD-nya | Unit-nya (+ sub unit untuk Admin Unit) | Unit-nya |
+| Dashboard (dengan filter & rincian) | Seluruh SKPD | SKPD-nya | Unit-nya (+ sub unit untuk Admin Unit) | Unit-nya |
 | SKPD & Akun Admin | Ya | - | - | - |
 | Unit & Sub Unit, atur akun | Ya (dukungan) | Ya | - | - |
 | Master Kode Barang | Ya | - | - | - |
@@ -29,6 +29,7 @@ Persediaan (stok) dicatat di tingkat **unit** dan **sub unit**. Admin SKPD dan S
 | Stock Opname | Pantau / batalkan | Mulai serentak, pantau, batalkan | Mulai, isi hitung fisik, selesaikan | Lihat |
 | Laporan | Seluruh SKPD | SKPD-nya | Unit-nya (+ sub unit) | - |
 | Pengguna & Login As | Ya | - | - | - |
+| Login As ke akun unit & sub unit | Ya | Ya (khusus SKPD-nya) | - | - |
 | Pengaturan & Log Aktivitas | Ya | - | - | - |
 
 **Aturan validasi:** transaksi yang diinput **Operator** harus disetujui **Admin** sebelum mengubah stok. Transaksi Operator Sub Unit dapat divalidasi oleh **Admin Sub Unit** yang bersangkutan **maupun Admin Unit** induknya. Transaksi yang diinput **Admin** langsung mengubah stok tanpa validasi.
@@ -96,7 +97,17 @@ Super Admin dapat membuka aplikasi persis seperti yang dilihat Admin SKPD, Admin
 2. Bilah ungu di atas halaman menandakan mode Login As. Menu yang tampil sesuai akun yang diperankan.
 3. Klik **Kembali ke Super Admin** pada bilah ungu untuk kembali ke halaman asal.
 
-Login As juga berlaku untuk akun yang belum aktif. Setiap Login As dan semua tindakan selama mode ini tercatat di **Log Aktivitas** dengan tanda *Login As oleh Super Admin*. Hanya Super Admin yang dapat menggunakan fitur ini.
+Login As juga berlaku untuk akun yang belum aktif. Setiap Login As dan semua tindakan selama mode ini tercatat di **Log Aktivitas** dengan tanda *Login As oleh Super Admin*. Admin SKPD juga dapat menggunakan Login As, tetapi terbatas pada akun unit dan sub unit di SKPD-nya (lihat 5.4).
+
+### 4.5 Dashboard: filter, rincian, dan SKPD yang belum input
+
+Bagian atas dashboard berisi filter **SKPD**, **Tahun**, **Periode** (triwulan, semester, tahunan, awal tahun s.d. hari ini, atau rentang tanggal), dan **Jenis Barang** (sub rincian objek). Klik **Tampilkan** untuk menerapkan, **Reset** untuk kembali ke bawaan.
+
+- Kartu bertanda ◉ dan tabel di bawahnya mengikuti filter. Kartu lain (jumlah SKPD, transaksi menunggu validasi, akun belum aktif) selalu menampilkan kondisi saat ini.
+- Bila satu SKPD dipilih, tabel berubah menjadi ringkasan per unit dan sub unit SKPD tersebut. Klik nama SKPD di tabel untuk langsung memfilter ke SKPD itu.
+- Kolom **Jenis Barang** = jumlah barang yang saldonya masih ada pada akhir periode. Kolom **Penerimaan** dan **Pengeluaran** = nilai mutasi dalam periode. Kolom **Nilai** = saldo akhir periode.
+- Klik angka **Jenis Barang** untuk melihat rincian per barang, atau angka **Nilai** untuk melihat rincian nilai per jenis barang (dan per unit/SKPD). Rincian tampil dalam jendela pop-up dengan tombol **Unduh Excel** dan **Buka di tab baru** (untuk dicetak/PDF). Baris **Jumlah** di bawah tabel juga dapat diklik.
+- Kartu **SKPD Belum Input Pembelian / Pemakaian** menghitung SKPD yang dalam periode filter belum memiliki transaksi pembelian, transaksi pemakaian, atau keduanya. Yang dihitung adalah transaksi input manual atau impor Excel yang berstatus menunggu validasi atau disetujui; saldo awal dan penyesuaian stock opname tidak dihitung. Bila filter jenis barang aktif, hanya transaksi yang memuat jenis barang itu yang dihitung. Klik kartu untuk melihat daftarnya beserta PIC dan telepon, lalu unduh sebagai Excel. Tombol **Tampilkan semua** memasukkan SKPD yang sudah lengkap.
 
 ## 5. Admin SKPD
 
@@ -117,6 +128,18 @@ Tabel **Status per unit & sub unit** menampilkan progres isian hitung fisik. Mas
 ### 5.3 Laporan
 
 Lihat bagian **8. Laporan**. Admin SKPD dapat memilih seluruh unit atau satu unit/sub unit.
+
+### 5.4 Dashboard dan Login As
+
+**Dashboard** Admin SKPD memiliki filter, rincian, dan kartu yang sama dengan Super Admin (lihat 4.5), dengan cakupan unit dan sub unit di SKPD-nya. Kartu **Unit Belum Input Pembelian / Pemakaian** menampilkan unit/sub unit yang belum menginput transaksi pada periode filter.
+
+**Login As** memungkinkan Admin SKPD membuka aplikasi sebagai Admin atau Operator unit/sub unit di bawahnya, misalnya untuk membantu input atau memeriksa data:
+
+1. Menu **Unit & Sub Unit** → klik **Masuk** pada baris unit/sub unit (masuk sebagai Admin unit tersebut), atau **Edit & Akun** → klik **Masuk** pada akun Admin/Operator yang diinginkan.
+2. Bilah ungu di atas halaman menandakan mode Login As. Menu yang tampil sesuai akun yang diperankan.
+3. Klik **Kembali ke Admin SKPD** pada bilah ungu untuk kembali.
+
+Admin SKPD tidak dapat masuk sebagai akun di SKPD lain, sesama Admin SKPD, atau Super Admin. Semua tindakan selama Login As tercatat di **Log Aktivitas** dengan tanda *Login As oleh Admin SKPD*.
 
 ## 6. Admin Unit dan Admin Sub Unit
 
@@ -225,9 +248,9 @@ Menu **Laporan** tersedia untuk Super Admin, Admin SKPD, dan Admin Unit/Sub Unit
 Database lengkap (`persediaan_bmd_lengkap.sql`) berisi:
 
 - **Master kode barang**: 484 kode (400 Sub Sub Rincian Objek) dari file kodefikasi.
-- **78 SKPD/Kecamatan** dari *Rekap Komponen Persediaan TW II*, masing-masing dengan unit **Sekretariat** dan saldo persediaan per 30 Juni 2026 sebagai **saldo awal migrasi** (satu baris agregat per sub rincian objek). Laporan Semester I 2026 menghasilkan angka yang sama dengan rekap aslinya.
-- **BPKAD lengkap** dari file stock opname BPKAD: 5 unit, 15 sub unit, ±690 baris barang dengan saldo awal, penerimaan TW I & II, dan pengeluaran Semester I.
-- **Tidak ada transaksi contoh/rekaan.** Seluruh data berasal dari file Excel yang diunggah, dengan transaksi terakhir bertanggal 30 Juni 2026. Belum ada transaksi yang menunggu validasi dan belum ada stock opname. Laporan per 30 Juni 2026 menghasilkan total persediaan Rp 164.312.419.116,76 (Rekap TW II Rp 163.865.633.539,69 + BPKAD Rp 446.785.577,07).
+- **78 SKPD/Kecamatan** dari *Rekap Komponen Persediaan TW II*, masing-masing dengan unit **Sekretariat**.
+- **BPKAD lengkap**: 5 unit dan 15 sub unit beserta akunnya.
+- **Tanpa data transaksi.** Tabel barang, pembelian, pemakaian, saldo awal, lot FIFO, dan stock opname sengaja dikosongkan agar input persediaan dimulai dari nol. Untuk mengosongkan transaksi pada database yang sudah terpasang, jalankan `database/03_kosongkan_transaksi.sql` (SKPD, unit, akun, dan kode barang tidak berubah).
 
 **Semua akun contoh memakai password `password`.** Akun SKPD lain sudah terbentuk tetapi belum aktif. Aktifkan melalui Super Admin.
 

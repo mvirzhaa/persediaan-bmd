@@ -75,33 +75,12 @@ function lap_scope($u, $skpdF, $unitF)
     return $out;
 }
 
-/**
- * Laporan mutasi per barang.
- * $tahun (opsional): bila diisi, turut dihitung rincian penerimaan per triwulan (tw1_q..tw4_q)
- * pada tahun tsb, terlepas dari $dari/$sampai yang dipilih — dipakai untuk kolom rincian
- * TW I..IV pada Laporan Mutasi & Stock Opname (Semester I/II/Tahunan).
- */
-function lap_mutasi(array $unitIds, $dari, $sampai, $subId = 0, $tahun = null)
+/** Laporan mutasi per barang */
+function lap_mutasi(array $unitIds, $dari, $sampai, $subId = 0)
 {
     if (!$unitIds) return [];
-    $y = (int)($tahun ?: substr((string)$dari, 0, 4));
-    $tw = [
-        1 => ["$y-01-01", "$y-03-31"],
-        2 => ["$y-04-01", "$y-06-30"],
-        3 => ["$y-07-01", "$y-09-30"],
-        4 => ["$y-10-01", "$y-12-31"],
-    ];
-    $twSql = ''; $twParams = [];
-    foreach ($tw as $n => $r) {
-        $twSql .= ",\n              SUM(CASE WHEN t.tanggal>=? AND t.tanggal<=? AND t.jenis='masuk' AND t.sumber<>'saldo_awal' THEN d.jumlah ELSE 0 END) tw{$n}_q";
-        $twParams[] = $r[0]; $twParams[] = $r[1];
-    }
-    $params = array_merge(
-        [$dari, $dari, $dari, $dari, $dari, $sampai, $dari, $sampai, $dari, $sampai, $dari, $sampai],
-        $twParams,
-        [$sampai],
-        $unitIds
-    );
+    $params = [$dari, $dari, $dari, $dari, $dari, $sampai, $dari, $sampai, $dari, $sampai, $dari, $sampai, $sampai];
+    $params = array_merge($params, $unitIds);
     $extra = '';
     if ($subId) { $extra = ' AND k.parent_id=?'; $params[] = (int)$subId; }
     $sql = "SELECT b.id, b.unit_id, b.nama_barang, b.satuan, k.kode, k.uraian AS kode_uraian, p.id AS sub_id, p.kode AS sub_kode, p.uraian AS sub_uraian,
@@ -111,7 +90,7 @@ function lap_mutasi(array $unitIds, $dari, $sampai, $subId = 0, $tahun = null)
               SUM(CASE WHEN t.tanggal>=? AND t.tanggal<=? AND t.jenis='masuk' AND t.sumber<>'saldo_awal' THEN d.nilai ELSE 0 END) masuk_v,
               SUM(CASE WHEN t.tanggal>=? AND t.tanggal<=? AND t.jenis='keluar' THEN d.jumlah ELSE 0 END) keluar_q,
               SUM(CASE WHEN t.tanggal>=? AND t.tanggal<=? AND t.jenis='keluar' THEN d.nilai ELSE 0 END) keluar_v,
-              MAX(CASE WHEN t.jenis='masuk' THEN d.harga_satuan END) harga_akhir{$twSql}
+              MAX(CASE WHEN t.jenis='masuk' THEN d.harga_satuan END) harga_akhir
             FROM transaksi_detail d
             JOIN transaksi t ON t.id=d.transaksi_id AND t.status='disetujui' AND t.tanggal<=?
             JOIN barang b ON b.id=d.barang_id
@@ -122,7 +101,7 @@ function lap_mutasi(array $unitIds, $dari, $sampai, $subId = 0, $tahun = null)
             ORDER BY p.kode, k.kode, b.nama_barang";
     $out = [];
     foreach (rows($sql, $params) as $r) {
-        foreach (['awal_q', 'awal_v', 'masuk_q', 'masuk_v', 'keluar_q', 'keluar_v', 'tw1_q', 'tw2_q', 'tw3_q', 'tw4_q'] as $f) $r[$f] = round((float)$r[$f], 2);
+        foreach (['awal_q', 'awal_v', 'masuk_q', 'masuk_v', 'keluar_q', 'keluar_v'] as $f) $r[$f] = round((float)$r[$f], 2);
         if ($r['awal_q'] == 0 && $r['masuk_q'] == 0 && $r['keluar_q'] == 0 && $r['awal_v'] == 0) continue;
         $r['akhir_q'] = round($r['awal_q'] + $r['masuk_q'] - $r['keluar_q'], 2);
         $r['akhir_v'] = round($r['awal_v'] + $r['masuk_v'] - $r['keluar_v'], 2);

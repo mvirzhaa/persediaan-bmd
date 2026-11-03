@@ -44,26 +44,8 @@ try {
             if (!is_unit_user()) json_out(['ok' => false], 403);
             $q = trim((string)($_GET['q'] ?? ''));
             $kid = (int)($_GET['kode_id'] ?? 0);
-            // Gabungkan dari 3 sumber, supaya barang yang pernah diketik sebelumnya selalu muncul sebagai saran:
-            //  1) cache "barang" (sudah pernah disetujui, punya stok akurat)
-            //  2) riwayat transaksi_detail (draft/menunggu validasi yang belum punya baris barang)
-            //  3) pencarian juga mencocokkan ke kolom "Keterangan" per baris barang (deskripsi/spesifikasi
-            //     bebas yang pernah diisi saat input), bukan cuma Nama Barang.
-            $res = rows(
-                'SELECT nama_barang, satuan, MAX(stok) AS stok, MAX(keterangan) AS keterangan FROM (
-                    SELECT nama_barang, satuan, stok, NULL AS keterangan FROM barang
-                     WHERE unit_id=? AND kode_barang_id=? AND nama_barang LIKE ?
-                    UNION ALL
-                    SELECT d.nama_barang, d.satuan, 0 AS stok, d.keterangan
-                      FROM transaksi_detail d
-                      JOIN transaksi t ON t.id = d.transaksi_id
-                     WHERE t.unit_id=? AND d.kode_barang_id=? AND t.jenis=\'masuk\'
-                       AND (d.nama_barang LIKE ? OR d.keterangan LIKE ?)
-                ) x
-                GROUP BY LOWER(nama_barang), LOWER(satuan)
-                ORDER BY nama_barang LIMIT 15',
-                [(int)$u['unit_id'], $kid, '%' . $q . '%', (int)$u['unit_id'], $kid, '%' . $q . '%', '%' . $q . '%']
-            );
+            $res = rows('SELECT nama_barang, satuan, stok FROM barang WHERE unit_id=? AND kode_barang_id=? AND nama_barang LIKE ? ORDER BY nama_barang LIMIT 15',
+                [(int)$u['unit_id'], $kid, '%' . $q . '%']);
             json_out(['ok' => true, 'items' => $res]);
 
         // ---------------------------------------------------------- cari barang di stok (pengeluaran)

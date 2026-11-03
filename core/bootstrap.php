@@ -33,3 +33,4 @@ require BASE_PATH . '/core/org.php';
 require BASE_PATH . '/core/laporan.php';
 require BASE_PATH . '/core/so.php';
 require BASE_PATH . '/core/report_render.php';
+require BASE_PATH . '/core/dashboard.php';

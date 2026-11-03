@@ -61,7 +61,7 @@ if ($u['role'] === 'superadmin') {
     $menu[] = ['stock_opname', 'Stock Opname', 'lock'];
     if ($u['role'] === 'admin') $menu[] = ['laporan', 'Laporan', 'report'];
 }
-$activeMap = ['skpd_form' => 'skpd', 'unit_form' => 'unit', 'akun' => ($u['role'] === 'superadmin' ? 'skpd' : 'unit'), 'kartu' => 'stok', 'transaksi_detail' => 'transaksi', 'kode_import' => 'kode'];
+$activeMap = ['rincian' => 'dashboard', 'skpd_form' => 'skpd', 'unit_form' => 'unit', 'akun' => ($u['role'] === 'superadmin' ? 'skpd' : 'unit'), 'kartu' => 'stok', 'transaksi_detail' => 'transaksi', 'kode_import' => 'kode'];
 $active = $activeMap[$curPage] ?? $curPage;
 $scopeLabel = $u['role'] === 'superadmin' ? 'Seluruh SKPD' : ($u['role'] === 'admin_skpd' ? $u['skpd_nama'] : $u['unit_nama']);
 ?><!doctype html>
@@ -71,7 +71,7 @@ $scopeLabel = $u['role'] === 'superadmin' ? 'Seluruh SKPD' : ($u['role'] === 'ad
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
 <title><?= e(($pageTitle ?? 'Dashboard') . ' · ' . APP_NAME) ?></title>
-<link rel="stylesheet" href="assets/app.css?v=3">
+<link rel="stylesheet" href="assets/app.css?v=4">
 </head>
 <body>
 <div class="layout">
@@ -114,7 +114,7 @@ $scopeLabel = $u['role'] === 'superadmin' ? 'Seluruh SKPD' : ($u['role'] === 'ad
       <div class="impersonate-bar">
         <span>&#128065; Mode <b>Login As</b>: Anda (<?= e($imp['nama']) ?>) sedang masuk sebagai <b><?= e($u['nama']) ?></b> — <?= e(role_label($u['role'], $u['unit_level'])) ?>, <?= e($scopeLabel) ?><?= !(int)$u['is_active'] ? ' <em>(akun belum aktif)</em>' : '' ?>.</span>
         <form method="post" action="login_as.php" class="inline-form"><?= csrf_field() ?><input type="hidden" name="aksi" value="kembali">
-          <button class="btn btn-sm" type="submit">Kembali ke akun <?= e(role_label($imp['role'])) ?></button></form>
+          <button class="btn btn-sm" type="submit">Kembali ke <?= e(role_label($imp['role'])) ?></button></form>
       </div>
     <?php endif; ?>
     <div class="nav-backdrop" onclick="document.body.classList.remove('nav-open')"></div>

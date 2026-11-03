@@ -9,6 +9,7 @@ require_login();
 $routes = [
     'dashboard'        => ['superadmin', 'admin_skpd', 'admin', 'operator'],
     'profil'           => ['superadmin', 'admin_skpd', 'admin', 'operator'],
+    'rincian'          => ['superadmin', 'admin_skpd'],
     'skpd'             => ['superadmin'],
     'skpd_form'        => ['superadmin'],
     'kode'             => ['superadmin'],

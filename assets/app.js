@@ -84,5 +84,51 @@
     if (e.target.matches('[data-autosubmit]')) e.target.form.submit();
   });
 
+  // Jendela rincian (pop-up): tautan bertanda data-rinci dimuat ke dalam modal
+  var modalEl = null, modalSeq = 0, lastFocus = null;
+  function modalClose() {
+    if (!modalEl) return;
+    modalEl.parentNode.removeChild(modalEl); modalEl = null; modalSeq++;
+    document.body.classList.remove('modal-open');
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+  function modalOpen(href) {
+    if (!modalEl) {
+      lastFocus = document.activeElement;
+      modalEl = document.createElement('div');
+      modalEl.className = 'modal-backdrop';
+      modalEl.innerHTML = '<div class="modal" role="dialog" aria-modal="true"></div>';
+      modalEl.addEventListener('mousedown', function (e) { if (e.target === modalEl) modalClose(); });
+      document.body.appendChild(modalEl);
+      document.body.classList.add('modal-open');
+    }
+    var box = modalEl.firstChild, my = ++modalSeq;
+    box.innerHTML = '<div class="modal-head"><h3>Memuat rincian…</h3><div class="actions"><button class="icon-btn modal-x" type="button" data-modal-close aria-label="Tutup">&#10005;</button></div></div>'
+      + '<div class="modal-body"><div class="empty">Memuat data…</div></div>';
+    var url = href + (href.indexOf('?') < 0 ? '?' : '&') + 'partial=1';
+    fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function (r) { return r.text().then(function (t) { return { ct: r.headers.get('Content-Type') || '', t: t }; }); })
+      .then(function (res) {
+        if (!modalEl || my !== modalSeq) return;
+        if (res.ct.indexOf('json') >= 0) { var j = {}; try { j = JSON.parse(res.t); } catch (e) { } throw new Error(j.msg || 'Gagal memuat rincian.'); }
+        box.innerHTML = res.t;
+        var x = box.querySelector('[data-modal-close]'); if (x) x.focus();
+      })
+      .catch(function (err) {
+        if (!modalEl || my !== modalSeq) return;
+        var b = box.querySelector('.modal-body');
+        if (b) b.innerHTML = '<div class="alert alert-error">' + esc(err && err.message ? err.message : 'Gagal memuat rincian.') + ' <a href="' + esc(href) + '">Buka halaman rincian</a></div>';
+      });
+  }
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest('a[data-rinci]');
+    if (a) {
+      if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return; // biarkan buka di tab baru
+      e.preventDefault(); modalOpen(a.getAttribute('href')); return;
+    }
+    if (e.target.closest('[data-modal-close]')) modalClose();
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modalEl) modalClose(); });
+
   window.BMD = { api: api, getJSON: getJSON, esc: esc, fmt: fmt, fmtQty: fmtQty, Combo: Combo, CSRF: CSRF };
 })();
