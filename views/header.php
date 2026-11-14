@@ -71,7 +71,7 @@ $scopeLabel = $u['role'] === 'superadmin' ? 'Seluruh SKPD' : ($u['role'] === 'ad
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
 <title><?= e(($pageTitle ?? 'Dashboard') . ' · ' . APP_NAME) ?></title>
-<link rel="stylesheet" href="assets/app.css?v=4">
+<link rel="stylesheet" href="assets/app.css?v=5">
 </head>
 <body>
 <div class="layout">

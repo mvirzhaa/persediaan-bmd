@@ -9,6 +9,7 @@ if (in_array($u['role'], ['superadmin', 'admin_skpd'], true)) {
     $isSkpd = dash_is_skpd($f);
     $ring = dash_ringkasan($f);
     $bl = dash_belum_ringkas(dash_status_input($f));
+    $nKosong = $bl['kosong'];
     $nilaiF = array_sum(array_column($ring, 'akhir'));
     $tot = ['item' => 0, 'n_barang' => 0, 'masuk' => 0, 'keluar' => 0, 'akhir' => 0, 'pending' => 0];
     foreach ($ring as $r) foreach ($tot as $k => $_) $tot[$k] += $r[$k];
@@ -54,7 +55,7 @@ include BASE_PATH . '/views/header.php';
     </div>
   </form>
 
-  <div class="stats stats-5">
+  <div class="stats stats-6">
   <?php if ($u['role'] === 'superadmin'):
       $nSkpd = (int)val('SELECT COUNT(*) FROM skpd');
       $nUnit = (int)val("SELECT COUNT(*) FROM unit_kerja WHERE level='unit'");
@@ -81,6 +82,10 @@ include BASE_PATH . '/views/header.php';
       <div class="label"><?= $isSkpd ? 'SKPD' : 'Unit' ?> Belum Input Pembelian / Pemakaian &#9673;</div>
       <div class="value"><?= angka($bl['belum']) ?> <span class="of">/ <?= angka($bl['total']) ?></span></div>
       <div class="hint"><?= angka($bl['kosong']) ?> belum input sama sekali · <span class="link">lihat daftar</span></div></a>
+    <a class="stat red" href="<?= e(dash_rinci_url($f, 'kosong')) ?>" data-rinci title="Lihat daftar <?= $isSkpd ? 'SKPD' : 'unit' ?> yang belum mengisi data">
+      <div class="label"><?= $isSkpd ? 'SKPD' : 'Unit' ?> Belum Mengisi Data &#9673;</div>
+      <div class="value"><?= angka($nKosong) ?> <span class="of">/ <?= angka($bl['total']) ?></span></div>
+      <div class="hint">periode <?= e($f['plabel']) ?> <?= (int)$f['tahun'] ?> · <span class="link">lihat daftar</span></div></a>
   </div>
 
   <?php

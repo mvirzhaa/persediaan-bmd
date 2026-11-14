@@ -1,10 +1,11 @@
 # Konfigurasi lokal (database server/lokal)
 config.local.php
 
-# File arsip / zip
+# File arsip / zip / dump di root
 *.zip
 *.tar.gz
 *.rar
+/*.sql
 
 # Dokumen upload transaksi (kecuali proteksi bawaan)
 uploads/*

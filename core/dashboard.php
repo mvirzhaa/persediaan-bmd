@@ -327,8 +327,9 @@ function dash_model_nilai(array $f, $ent, array $unitIds)
 }
 
 /** Daftar SKPD / unit yang belum menginput pembelian dan/atau pemakaian */
-function dash_model_belum(array $f, $semua = false)
+function dash_model_belum(array $f, $semua = false, $mode = 'belum')
 {
+    $kosong = ($mode === 'kosong'); // true: hanya yang sama sekali belum mengisi data (tanpa pembelian maupun pemakaian)
     $isSkpd = dash_is_skpd($f);
     $status = dash_status_input($f);
     $info = [];
@@ -345,19 +346,20 @@ function dash_model_belum(array $f, $semua = false)
         elseif (!$s['beli'] && !$s['pakai']) { $ket = 'Belum input pembelian & pemakaian'; $ord = 0; }
         elseif (!$s['beli']) { $ket = 'Belum input pembelian'; $ord = 1; }
         else { $ket = 'Belum input pemakaian'; $ord = 2; }
-        if ($ord === 3 && !$semua) continue;
+        if ($kosong) { if ($ord !== 0 && !$semua) continue; if ($ord !== 0) $ket = 'Sudah mengisi data'; }
+        elseif ($ord === 3 && !$semua) continue;
         $list[] = ['id' => $id, 'nama' => $e['nama'], 'level' => $e['level'], 'beli' => $s['beli'], 'pakai' => $s['pakai'], 'ket' => $ket, 'ord' => $ord];
     }
     if ($isSkpd) usort($list, function ($a, $b) { return [$a['ord'], $a['nama']] <=> [$b['ord'], $b['nama']]; });
 
     $meta = dash_ent_meta($f, 0);
     $m = [
-        'titles' => ['DAFTAR ' . $lbl . ' YANG BELUM MENGINPUT PEMBELIAN / PEMAKAIAN', $f['plabel'] . ' TAHUN ' . $f['tahun']],
+        'titles' => [$kosong ? 'DAFTAR ' . $lbl . ' YANG BELUM MENGISI DATA' : 'DAFTAR ' . $lbl . ' YANG BELUM MENGINPUT PEMBELIAN / PEMAKAIAN', $f['plabel'] . ' TAHUN ' . $f['tahun']],
         'meta' => $meta,
         'cols' => [5, 50, 26, 18, 14, 14, 32],
         'head' => [[rc('NO', 's', 1, 2), rc($lbl, 's', 1, 2), rc('PIC', 's', 1, 2), rc('TELEPON', 's', 1, 2), rc('JUMLAH TRANSAKSI', 's', 2), rc('KETERANGAN', 's', 1, 2)], ['PEMBELIAN', 'PEMAKAIAN']],
         'body' => [], 'landscape' => true,
-        'notes' => ['Dihitung dari transaksi pembelian dan pemakaian (input manual / impor Excel) berstatus menunggu validasi atau disetujui dengan tanggal dalam periode'
+        'notes' => [($kosong ? 'Belum mengisi data = tidak memiliki satu pun transaksi pembelian maupun pemakaian. ' : '') . 'Dihitung dari transaksi pembelian dan pemakaian (input manual / impor Excel) berstatus menunggu validasi atau disetujui dengan tanggal dalam periode'
             . ($f['sub'] ? ' dan memuat jenis barang ' . dash_sub_label($f) : '') . '. Saldo awal dan penyesuaian stock opname tidak dihitung.'],
     ];
     $no = 0;
@@ -367,6 +369,6 @@ function dash_model_belum(array $f, $semua = false)
         $m['body'][] = ['cells' => [rc($no, 'c'), ($x['level'] === 'subunit' ? '   ↳ ' : '') . $x['nama'], (string)($in['pic'] ?? ''), (string)($in['telp'] ?? ''),
             rc($x['beli'] ?: '-', 'c'), rc($x['pakai'] ?: '-', 'c'), $x['ket']]];
     }
-    if (!$list) $m['body'][] = ['cells' => [rc('Semua ' . ($isSkpd ? 'SKPD' : 'unit / sub unit') . ' sudah menginput pembelian dan pemakaian pada periode ini.', 'c', 7)]];
+    if (!$list) $m['body'][] = ['cells' => [rc('Semua ' . ($isSkpd ? 'SKPD' : 'unit / sub unit') . ($kosong ? ' sudah mengisi data pada periode ini.' : ' sudah menginput pembelian dan pemakaian pada periode ini.'), 'c', 7)]];
     return $m;
 }

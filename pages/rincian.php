@@ -4,15 +4,16 @@
  *   tipe=barang : rincian per barang (dari kolom Jenis Barang)
  *   tipe=nilai  : rincian nilai per jenis barang (+ per SKPD/unit) (dari kolom Nilai)
  *   tipe=belum  : daftar SKPD/unit yang belum menginput pembelian/pemakaian
+ *   tipe=kosong : daftar SKPD/unit yang sama sekali belum mengisi data pada periode
  * partial=1 -> potongan HTML untuk jendela pop-up dashboard
  * export=xlsx -> unduh Excel
  */
 defined('BASE_PATH') or exit;
 $u = user();
 $f = dash_filter($u);
-$tipe = in_array(input('tipe'), ['barang', 'nilai', 'belum'], true) ? input('tipe') : 'nilai';
-$ent = $tipe === 'belum' ? 0 : input_int('ent');
-$semua = $tipe === 'belum' && input('semua') ? 1 : 0;
+$tipe = in_array(input('tipe'), ['barang', 'nilai', 'belum', 'kosong'], true) ? input('tipe') : 'nilai';
+$ent = in_array($tipe, ['belum', 'kosong'], true) ? 0 : input_int('ent');
+$semua = in_array($tipe, ['belum', 'kosong'], true) && input('semua') ? 1 : 0;
 $partial = (bool)input('partial');
 
 $unitIds = dash_ent_units($f, $ent);
@@ -31,6 +32,9 @@ if ($tipe === 'barang') {
 } elseif ($tipe === 'nilai') {
     $judul = 'Rincian nilai persediaan — ' . $entNama;
     $models = dash_model_nilai($f, $ent, $unitIds);
+} elseif ($tipe === 'kosong') {
+    $judul = ($isSkpd ? 'SKPD' : 'Unit / sub unit') . ' yang belum mengisi data' . ($semua ? ' (semua ditampilkan)' : '');
+    $models = [['sheet' => 'Belum Mengisi', 'judul' => '', 'model' => dash_model_belum($f, (bool)$semua, 'kosong')]];
 } else {
     $judul = ($isSkpd ? 'SKPD' : 'Unit / sub unit') . ' yang belum menginput pembelian / pemakaian' . ($semua ? ' (semua ditampilkan)' : '');
     $models = [['sheet' => 'Belum Input', 'judul' => '', 'model' => dash_model_belum($f, (bool)$semua)]];
@@ -52,8 +56,8 @@ if (input('export') === 'xlsx') {
 }
 
 $toggleBelum = '';
-if ($tipe === 'belum') {
-    $tq = dash_qs($f) + ['tipe' => 'belum'];
+if (in_array($tipe, ['belum', 'kosong'], true)) {
+    $tq = dash_qs($f) + ['tipe' => $tipe];
     if (!$semua) $tq['semua'] = 1;
     $toggleBelum = url('rincian', $tq);
 }
