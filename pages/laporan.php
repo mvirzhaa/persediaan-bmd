@@ -1,5 +1,8 @@
 <?php
 defined('BASE_PATH') or exit;
+// Data persediaan besar (puluhan ribu barang): beri ruang memori & waktu agar laporan seluruh SKPD tidak berakhir HTTP 500
+@ini_set('memory_limit', '1024M');
+@set_time_limit(300);
 $u = user();
 
 // ------------------------------------------------------------------ parameter
@@ -222,7 +225,11 @@ function model_objek($scope, $dari, $sampai, $plabel, $tahun, $kodeAll, $ringkas
 }
 
 // ------------------------------------------------------------------ bangun model
-if ($jenis === 'mutasi') {
+// Laporan mutasi per barang untuk SELURUH SKPD terlalu besar untuk ditampilkan di layar -> tampilkan petunjuk (Excel tetap bisa diunduh)
+$terlaluBesar = ($jenis === 'mutasi' && $scope['entity'] === 'skpd' && input('export') !== 'xlsx');
+if ($terlaluBesar) {
+    $model = null; $model2 = null;
+} elseif ($jenis === 'mutasi') {
     list($model, $model2) = model_mutasi($scope, $dari, $sampai, $subF, $scopeMeta, $ttd);
 } elseif ($jenis === 'rekap') {
     $model = model_rekap($scope, $dari, $sampai, $kodeAll, $semuaKolom, $pemerintah, $ttd);
@@ -274,13 +281,13 @@ $tabs = [
     <div class="filters">
       <?php if ($u['role'] === 'superadmin'): ?>
         <div class="field" style="min-width:260px"><label>SKPD</label><select name="skpd" onchange="this.form.unit && (this.form.unit.value='');this.form.submit()">
-          <option value="0">— Seluruh SKPD —</option>
+          <option value="0">— Seluruh SKPD (semua unit) —</option>
           <?php foreach ($skpdList as $s): ?><option value="<?= (int)$s['id'] ?>" <?= (int)$s['id'] === $skpdF ? 'selected' : '' ?>><?= e($s['nama']) ?></option><?php endforeach; ?>
         </select></div>
       <?php endif; ?>
-      <?php if ($unitOpts && count($unitOpts) > 1): ?>
+      <?php if ($unitOpts && (count($unitOpts) > 1 || $u['role'] === 'superadmin')): ?>
         <div class="field" style="min-width:240px"><label>Unit / Sub Unit</label><select name="unit">
-          <option value="0"><?= $u['role'] === 'admin' ? '— ' . e($u['unit_nama']) . ' + sub unit —' : '— Semua unit —' ?></option>
+          <option value="0"><?= $u['role'] === 'admin' ? '— ' . e($u['unit_nama']) . ' + sub unit —' : '— Seluruh unit (termasuk sub unit) —' ?></option>
           <?php foreach ($unitOpts as $x): ?><option value="<?= (int)$x['id'] ?>" <?= (int)$x['id'] === $unitF ? 'selected' : '' ?>><?= $x['level'] === 'subunit' ? '↳ ' : '' ?><?= e($x['nama']) ?></option><?php endforeach; ?>
         </select></div>
       <?php endif; ?>
@@ -329,7 +336,11 @@ $tabs = [
 </div>
 <div class="card">
   <div class="card-body">
+    <?php if ($terlaluBesar): ?>
+      <div class="alert alert-info" style="margin:0">Laporan Mutasi per barang untuk <b>seluruh SKPD / seluruh unit</b> terlalu besar untuk ditampilkan di layar. Pilih satu <b>SKPD</b> (dan unit bila perlu) pada filter di atas, atau klik <b>Ekspor Excel</b> untuk mengunduh seluruhnya. Tab <b>Rekap Rincian (18.1)</b> dan <b>Menurut Objek</b> tetap dapat menampilkan seluruh SKPD.</div>
+    <?php else: ?>
     <div class="report-scroll"><?= report_html($model) ?></div>
+    <?php endif; ?>
     <?php if ($model2): ?><div class="page-break"></div><h3 class="no-print" style="margin:22px 0 10px">Rekap per jenis barang</h3><div class="report-scroll"><?= report_html($model2) ?></div><?php endif; ?>
   </div>
 </div>
