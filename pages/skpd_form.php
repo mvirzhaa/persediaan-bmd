@@ -5,6 +5,16 @@ $s = $id ? row('SELECT * FROM skpd WHERE id=?', [$id]) : null;
 if ($id && !$s) { flash('error', 'SKPD tidak ditemukan.'); redirect(url('skpd')); }
 $errors = [];
 
+if (is_post() && $s && input('aksi') === 'ttd') {
+    csrf_check();
+    foreach (array_keys(skpd_ttd_fields()) as $k) {
+        $v = trim((string)input('ttd_' . $k, ''));
+        exec_sql('INSERT INTO pengaturan (kunci, nilai) VALUES (?,?) ON DUPLICATE KEY UPDATE nilai=VALUES(nilai)', ['ttd_skpd' . $id . '_' . $k, $v]);
+    }
+    log_aktivitas('skpd_ttd', $s['nama']);
+    flash('success', 'Pengaturan tanda tangan laporan disimpan.');
+    redirect(url('skpd_form', ['id' => $id]));
+}
 if (is_post()) {
     csrf_check();
     list($d, $errors) = org_form_data();
@@ -23,6 +33,7 @@ if (is_post()) {
     }
     $s = array_merge($s ?: [], $d);
 }
+$ttd = $id ? skpd_ttd_get($id) : [];
 $akun = $id ? rows("SELECT * FROM users WHERE skpd_id=? AND role='admin_skpd' ORDER BY slot, id", [$id]) : [];
 
 $pageTitle = $id ? 'Edit SKPD' : 'Tambah SKPD';
@@ -82,4 +93,28 @@ include BASE_PATH . '/views/header.php';
     </div>
   </div>
 </div>
+
+<?php if ($id): ?>
+<div class="card" style="margin-top:18px">
+  <div class="card-head"><h2>Pengaturan Tanda Tangan Laporan</h2></div>
+  <div class="card-body">
+    <p class="muted" style="margin-top:0">Dipakai otomatis pada Laporan SKPD ini. Kolom yang dikosongkan memakai isian bawaan (kiri: Kepala SKPD, kanan: Pengurus Barang). Tanggal laporan = tanggal saat laporan dibuat.</p>
+    <form method="post">
+      <?= csrf_field() ?><input type="hidden" name="aksi" value="ttd">
+      <div class="form-grid">
+        <div class="field col-6"><label>Tempat</label><input type="text" name="ttd_kota" value="<?= e($ttd['kota'] ?? '') ?>" placeholder="<?= e(setting('kota_ttd', 'Cibinong')) ?>"></div>
+        <div class="field col-6"></div>
+        <div class="field col-6"><label>Penandatangan kiri — jabatan (baris baru = Enter)</label><textarea name="ttd_kiri_jabatan" rows="3" placeholder="Mengetahui,&#10;Kepala <?= e($s['nama']) ?>"><?= e($ttd['kiri_jabatan'] ?? '') ?></textarea></div>
+        <div class="field col-6"><label>Penandatangan kanan — jabatan</label><textarea name="ttd_kanan_jabatan" rows="3" placeholder="Pengurus Barang"><?= e($ttd['kanan_jabatan'] ?? '') ?></textarea></div>
+        <div class="field col-3"><label>Nama kiri</label><input type="text" name="ttd_kiri_nama" value="<?= e($ttd['kiri_nama'] ?? '') ?>"></div>
+        <div class="field col-3"><label>NIP kiri</label><input type="text" name="ttd_kiri_nip" value="<?= e($ttd['kiri_nip'] ?? '') ?>"></div>
+        <div class="field col-3"><label>Nama kanan</label><input type="text" name="ttd_kanan_nama" value="<?= e($ttd['kanan_nama'] ?? '') ?>"></div>
+        <div class="field col-3"><label>NIP kanan</label><input type="text" name="ttd_kanan_nip" value="<?= e($ttd['kanan_nip'] ?? '') ?>"></div>
+      </div>
+      <div class="divider"></div>
+      <button class="btn" type="submit">Simpan Tanda Tangan</button>
+    </form>
+  </div>
+</div>
+<?php endif; ?>
 <?php include BASE_PATH . '/views/footer.php'; ?>

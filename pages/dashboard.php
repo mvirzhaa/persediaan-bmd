@@ -14,7 +14,7 @@ if (in_array($u['role'], ['superadmin', 'admin_skpd'], true)) {
     $tot = ['item' => 0, 'n_barang' => 0, 'masuk' => 0, 'keluar' => 0, 'akhir' => 0, 'pending' => 0];
     foreach ($ring as $r) foreach ($tot as $k => $_) $tot[$k] += $r[$k];
     $semuaBaris = (bool)input('semua');
-    $skpdList = $u['role'] === 'superadmin' ? rows('SELECT id, nama FROM skpd ORDER BY nama') : [];
+    $skpdList = $u['role'] === 'superadmin' ? rows('SELECT id, kode, nama FROM skpd ORDER BY (kode IS NULL), kode+0, kode, nama') : [];
     $subOpts = rows('SELECT id, kode, uraian FROM kode_barang WHERE level=6 ORDER BY kode');
     $filterAktif = $f['skpd'] || $f['sub'] || $f['periode'] !== 'ytd' || (int)$f['tahun'] !== (int)date('Y');
     $scopeNama = $f['scope']['skpd'] ? $f['scope']['skpd']['nama'] : 'seluruh SKPD';
@@ -36,7 +36,7 @@ include BASE_PATH . '/views/header.php';
         <?php if ($u['role'] === 'superadmin'): ?>
           <div class="field grow" style="min-width:280px"><label>SKPD</label><select name="skpd">
             <option value="0">— Seluruh SKPD —</option>
-            <?php foreach ($skpdList as $s): ?><option value="<?= (int)$s['id'] ?>" <?= (int)$s['id'] === (int)$f['skpd'] ? 'selected' : '' ?>><?= e($s['nama']) ?></option><?php endforeach; ?>
+            <?php foreach ($skpdList as $s): ?><option value="<?= (int)$s['id'] ?>" <?= (int)$s['id'] === (int)$f['skpd'] ? 'selected' : '' ?>><?= e(($s['kode'] !== null && $s['kode'] !== '' ? $s['kode'] . ' - ' : '') . $s['nama']) ?></option><?php endforeach; ?>
           </select></div>
         <?php endif; ?>
         <div class="field" style="min-width:110px"><label>Tahun</label><select name="tahun"><?php for ($y = (int)date('Y') + 1; $y >= 2020; $y--): ?><option <?= $y === (int)$f['tahun'] ? 'selected' : '' ?>><?= $y ?></option><?php endfor; ?></select></div>

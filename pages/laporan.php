@@ -26,7 +26,7 @@ $pemda = setting('nama_pemda', '');
 $td = lap_ttd_default($u, $scope);
 $ttdIn = [];
 foreach (['kota', 'tgl', 'kiri_jabatan', 'kiri_nama', 'kiri_nip', 'kanan_jabatan', 'kanan_nama', 'kanan_nip'] as $k) {
-    $ttdIn[$k] = input('t_' . $k) !== null ? (string)input('t_' . $k) : ($k === 'tgl' ? date('Y-m-d') : ($td[$k] ?? ''));
+    $ttdIn[$k] = $k === 'tgl' ? date('Y-m-d') : (string)($td[$k] ?? ''); // diatur per SKPD (menu SKPD & Akun Admin → Edit); tanggal = hari ini
 }
 $ttd = [
     'tempat' => trim($ttdIn['kota'] . ', ' . (valid_date($ttdIn['tgl']) ? tgl_indo($ttdIn['tgl']) : ''), ', '),
@@ -252,7 +252,7 @@ if (input('export') === 'xlsx') {
 }
 
 // ------------------------------------------------------------------ tampilan
-$skpdList = $u['role'] === 'superadmin' ? rows('SELECT id, nama FROM skpd ORDER BY nama') : [];
+$skpdList = $u['role'] === 'superadmin' ? rows('SELECT id, kode, nama FROM skpd ORDER BY (kode IS NULL), kode+0, kode, nama') : [];
 $unitOpts = $scope['allowed'] ?? [];
 $subOpts = $jenis === 'mutasi' ? array_filter($kodeAll, function ($k) { return (int)$k['level'] === 6; }) : [];
 $qs = $_GET;
@@ -282,7 +282,7 @@ $tabs = [
       <?php if ($u['role'] === 'superadmin'): ?>
         <div class="field" style="min-width:260px"><label>SKPD</label><select name="skpd" onchange="this.form.unit && (this.form.unit.value='');this.form.submit()">
           <option value="0">— Seluruh SKPD (semua unit) —</option>
-          <?php foreach ($skpdList as $s): ?><option value="<?= (int)$s['id'] ?>" <?= (int)$s['id'] === $skpdF ? 'selected' : '' ?>><?= e($s['nama']) ?></option><?php endforeach; ?>
+          <?php foreach ($skpdList as $s): ?><option value="<?= (int)$s['id'] ?>" <?= (int)$s['id'] === $skpdF ? 'selected' : '' ?>><?= e(($s['kode'] !== null && $s['kode'] !== '' ? $s['kode'] . ' - ' : '') . $s['nama']) ?></option><?php endforeach; ?>
         </select></div>
       <?php endif; ?>
       <?php if ($unitOpts && (count($unitOpts) > 1 || $u['role'] === 'superadmin')): ?>
@@ -308,20 +308,9 @@ $tabs = [
       <?php endif; ?>
       <button class="btn" type="submit">Tampilkan</button>
     </div>
-    <details style="margin-top:12px">
-      <summary class="small" style="cursor:pointer;color:var(--accent);font-weight:600">Pengaturan tanda tangan</summary>
-      <div class="form-grid" style="margin-top:10px">
-        <div class="field col-3"><label>Tempat</label><input type="text" name="t_kota" value="<?= e($ttdIn['kota']) ?>"></div>
-        <div class="field col-3"><label>Tanggal</label><input type="date" name="t_tgl" value="<?= e($ttdIn['tgl']) ?>"></div>
-        <div class="field col-6"></div>
-        <div class="field col-6"><label>Penandatangan kiri — jabatan (baris baru = Enter)</label><textarea name="t_kiri_jabatan" rows="2"><?= e($ttdIn['kiri_jabatan']) ?></textarea></div>
-        <div class="field col-6"><label>Penandatangan kanan — jabatan</label><textarea name="t_kanan_jabatan" rows="2"><?= e($ttdIn['kanan_jabatan']) ?></textarea></div>
-        <div class="field col-3"><label>Nama kiri</label><input type="text" name="t_kiri_nama" value="<?= e($ttdIn['kiri_nama']) ?>"></div>
-        <div class="field col-3"><label>NIP kiri</label><input type="text" name="t_kiri_nip" value="<?= e($ttdIn['kiri_nip']) ?>"></div>
-        <div class="field col-3"><label>Nama kanan</label><input type="text" name="t_kanan_nama" value="<?= e($ttdIn['kanan_nama']) ?>"></div>
-        <div class="field col-3"><label>NIP kanan</label><input type="text" name="t_kanan_nip" value="<?= e($ttdIn['kanan_nip']) ?>"></div>
-      </div>
-    </details>
+    <?php if ($u['role'] === 'superadmin' && $skpdF): ?>
+      <div class="small muted" style="margin-top:10px">Penandatangan laporan diatur per SKPD di menu <a href="<?= e(url('skpd_form', ['id' => $skpdF])) ?>">SKPD &amp; Akun Admin → Edit</a>.</div>
+    <?php endif; ?>
   </div>
 </form>
 

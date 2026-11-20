@@ -145,8 +145,38 @@ function lap_kode_tree()
     return $list;
 }
 
-/** Tanda tangan default */
+/** Kolom tanda tangan per SKPD (disimpan di tabel pengaturan: kunci ttd_skpd<ID>_<kolom>) */
+function skpd_ttd_fields()
+{
+    return ['kota' => 'Tempat', 'kiri_jabatan' => 'Penandatangan kiri — jabatan', 'kiri_nama' => 'Nama kiri', 'kiri_nip' => 'NIP kiri',
+        'kanan_jabatan' => 'Penandatangan kanan — jabatan', 'kanan_nama' => 'Nama kanan', 'kanan_nip' => 'NIP kanan'];
+}
+
+/** Tanda tangan yang sudah diatur untuk SKPD (kolom kosong = pakai bawaan) */
+function skpd_ttd_get($skpdId)
+{
+    $out = [];
+    foreach (rows('SELECT kunci, nilai FROM pengaturan WHERE kunci LIKE ?', ['ttd\\_skpd' . (int)$skpdId . '\\_%']) as $r) {
+        $k = substr($r['kunci'], strlen('ttd_skpd' . (int)$skpdId . '_'));
+        $out[$k] = (string)$r['nilai'];
+    }
+    return $out;
+}
+
+/** Tanda tangan laporan: pengaturan SKPD bila ada, selain itu nilai bawaan */
 function lap_ttd_default($u, $scope)
+{
+    $d = lap_ttd_bawaan($u, $scope);
+    if (!empty($scope['skpd']['id'])) {
+        foreach (skpd_ttd_get((int)$scope['skpd']['id']) as $k => $v) {
+            if ($v !== '' && array_key_exists($k, $d)) $d[$k] = $v;
+        }
+    }
+    return $d;
+}
+
+/** Tanda tangan bawaan */
+function lap_ttd_bawaan($u, $scope)
 {
     $kota = setting('kota_ttd', '');
     if ($u['role'] === 'superadmin' && !$scope['skpd']) {
